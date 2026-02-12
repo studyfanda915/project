@@ -1,0 +1,131 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum JobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model Plan {
+  id              String  @id @default(cuid())
+  name            String  @unique
+  maxFileSizeMb   Int
+  retentionHours  Int
+  monthlyLimit    Int
+  priceCents      Int
+  users           User[]
+  createdAt       DateTime @default(now())
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  passwordHash    String?
+  name            String?
+  googleId        String?  @unique
+  planId          String
+  plan            Plan     @relation(fields: [planId], references: [id])
+  uploads         FileUpload[]
+  jobs            ConversionJob[]
+  apiKeys         ApiKey[]
+  usageLogs       UsageLog[]
+  adminRole       AdminRole?
+  createdAt       DateTime @default(now())
+
+  @@index([planId])
+}
+
+model FileUpload {
+  id              String   @id @default(cuid())
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id])
+  originalName    String
+  mimeType        String
+  sizeBytes       Int
+  path            String
+  encrypted       Boolean  @default(true)
+  expiresAt       DateTime
+  job             ConversionJob?
+  createdAt       DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+}
+
+model ConversionJob {
+  id              String   @id @default(cuid())
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id])
+  fileId          String
+  file            FileUpload @relation(fields: [fileId], references: [id])
+  tool            String
+  targetFormat    String
+  status          JobStatus @default(QUEUED)
+  progress        Int      @default(0)
+  error           String?
+  result          ConversionResult?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model ConversionResult {
+  id              String   @id @default(cuid())
+  jobId           String   @unique
+  job             ConversionJob @relation(fields: [jobId], references: [id])
+  outputPath      String
+  outputFormat    String
+  outputSizeBytes Int
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+model ApiKey {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  keyHash         String
+  label           String
+  lastUsedAt      DateTime?
+  revokedAt       DateTime?
+  usageLogs       UsageLog[]
+  createdAt       DateTime @default(now())
+
+  @@index([userId, revokedAt])
+}
+
+model UsageLog {
+  id              String   @id @default(cuid())
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id])
+  apiKeyId        String?
+  apiKey          ApiKey?  @relation(fields: [apiKeyId], references: [id])
+  endpoint        String
+  method          String
+  ipAddress       String?
+  statusCode      Int
+  createdAt       DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([apiKeyId, createdAt])
+}
+
+model AdminRole {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id])
+  role            String   @default("ADMIN")
+  createdAt       DateTime @default(now())
+}
