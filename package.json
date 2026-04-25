@@ -1,0 +1,14 @@
+{
+  "name": "restaurant-management-platform",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w frontend & npm run dev -w backend",
+    "dev:frontend": "npm run dev -w frontend",
+    "dev:backend": "npm run dev -w backend",
+    "check": "npm run check -w frontend && npm run check -w backend"
+  }
+}
